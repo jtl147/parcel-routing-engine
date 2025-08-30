@@ -5,6 +5,8 @@ from typing import Optional
 from distances import AddressIndex, DistanceMatrix
 from router import Truck, route_truck
 from datetime import timedelta
+from simulator import simulate_day, print_summary
+
 
 
 # ----- Models -----
@@ -60,15 +62,22 @@ def main():
         d = matrix.distance_between_addresses(hub_addr, sample_pkg.street, index)
         print(f"Distance HUB -> Package 1 address: {d:.1f} miles")
 
-    demo_ids = [1, 2, 3, 4]
-    t1 = Truck(id=1, start_time=timedelta(hours=8))
-    route_truck(t1, demo_ids, packages, index, matrix)
+    loads = {
+        1: [1, 2, 3, 4, 5, 6, 7, 8],
+        2: [9, 10, 11, 12, 13, 14, 15, 16],
+        3: [17, 18, 19, 20, 21, 22, 23, 24],
+    }
 
-    print(f"Truck 1 demo: miles={t1.miles:.1f}, finished at {t1.clock}")
-    for pid in demo_ids:
+    holds = {
+    }
+
+    result = simulate_day(packages, index, matrix, loads, holds)
+    print_summary(result)
+
+    for pid in [1, 2, 3]:
         p = packages.search(pid)
         if p:
-            print(f"Package {pid}: delivered at {p.delivery_time}")
+            print(f"Pkg {pid} delivered at {p.delivery_time}")
 
 
 def load_address_index(path: str) -> AddressIndex:
