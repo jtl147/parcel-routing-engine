@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Optional
 from distances import AddressIndex, DistanceMatrix
 from router import Truck, route_truck
-from datetime import timedelta
+from datetime import timedelta, datetime, time
 from simulator import simulate_day, print_summary
 
 
@@ -21,14 +21,22 @@ class Package:
     weight: str
     notes: str
     status: str = "At the hub"
-    departure_time: Optional[str] = None
-    delivery_time: Optional[str] = None
+    deadline_time: Optional[time] = None
+    departure_time: Optional[timedelta] = None
+    delivery_time: Optional[timedelta] = None
     truck_id: Optional[int] = None
+
 
 # ----- Data store -----
 packages = ChainingHashTable(init_capacity=64)
 
 # ----- Loaders -----
+def _parse_deadline(s: str) -> Optional[time]:
+    s = (s or "").strip()
+    if not s or s.upper() == "EOD":
+        return None
+    return datetime.strptime(s, "%I:%M %p").time()
+
 def load_packages_csv(path: str) -> None:
     """Load packageCSV.csv and insert Package into hash table."""
     with open(path, newline="") as f:
@@ -44,8 +52,17 @@ def load_packages_csv(path: str) -> None:
                 deadline=row[5],
                 weight=row[6],
                 notes=row[7],
+                deadline_time=_parse_deadline(row[5]),
             )
             packages.insert(pkg.id, pkg)
+
+# ----- Reset Package Status -----
+def reset_package_statuses():
+    for pid, pkg in packages.items():
+        pkg.status = "At the hub"
+        pkg.departure_time = None
+        pkg.delivery_time = None
+        pkg.truck_id = None
 
 # ----- Main -----
 def main():
@@ -71,6 +88,7 @@ def main():
     holds = {
     }
 
+    reset_package_statuses()
     result = simulate_day(packages, index, matrix, loads, holds)
     print_summary(result)
 

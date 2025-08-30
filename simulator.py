@@ -5,7 +5,7 @@ from hash_table import ChainingHashTable
 from router import Truck, route_truck
 from distances import AddressIndex, DistanceMatrix
 
-HUB_START = timedelta(hours=8)  # 08:00
+HUB_START = timedelta(hours=8)
 
 def simulate_day(
     packages: ChainingHashTable,
