@@ -1,6 +1,3 @@
-# Author: Jedi Lee
-# Student ID: 012594297
-
 from typing import Any, Iterable, List, Optional, Tuple
 
 class ChainingHashTable:
