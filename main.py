@@ -64,6 +64,26 @@ def reset_package_statuses():
         pkg.delivery_time = None
         pkg.truck_id = None
 
+# ----- Console Helpers -----
+def parse_query_time(s: str) -> timedelta:
+    s = s.strip()
+    if "AM" in s.upper() or "PM" in s.upper():
+        t = datetime.strptime(s.upper(), "%I:%M %p").time()
+    else:
+        t = datetime.strptime(s, "%H:%M").time()
+    base = datetime(2000, 1, 1, 8, 0)  # start of day 08:00
+    dt = datetime.combine(base.date(), t)
+    if dt < base:
+        dt = base
+    return dt - base
+
+def status_at_time(pkg: Package, query: timedelta) -> str:
+    if pkg.delivery_time and query >= pkg.delivery_time:
+        return f"Delivered at {pkg.delivery_time}"
+    if pkg.departure_time and pkg.departure_time <= query:
+        return "En route"
+    return "At the hub"
+
 # ----- Main -----
 def main():
     load_packages_csv("data/packageCSV.csv")
@@ -85,8 +105,7 @@ def main():
         3: [17, 18, 19, 20, 21, 22, 23, 24],
     }
 
-    holds = {
-    }
+    holds = {}
 
     reset_package_statuses()
     result = simulate_day(packages, index, matrix, loads, holds)
@@ -97,7 +116,46 @@ def main():
         if p:
             print(f"Pkg {pid} delivered at {p.delivery_time}")
 
+    # ----- Console Menu -----
+    while True:
+        print("\nMenu:")
+        print("1) Status of a single package at a time")
+        print("2) Status of all packages at a time")
+        print("3) Summary (truck miles and total)")
+        print("4) Exit")
+        choice = input("Choose an option (1-4): ").strip()
 
+        if choice == "1":
+            try:
+                pid = int(input("Enter package ID: ").strip())
+                q = parse_query_time(input("Enter time (e.g., 9:15 AM or 13:45): "))
+                pkg = packages.search(pid)
+                if not pkg:
+                    print("Package not found.")
+                    continue
+                print(f"Package {pid}: {status_at_time(pkg, q)}")
+            except Exception as e:
+                print("Error:", e)
+
+        elif choice == "2":
+            try:
+                q = parse_query_time(input("Enter time (e.g., 9:15 AM or 13:45): "))
+                for pid, pkg in sorted(packages.items(), key=lambda kv: kv[0]):
+                    print(f"Package {pid}: {status_at_time(pkg, q)}")
+            except Exception as e:
+                print("Error:", e)
+
+        elif choice == "3":
+            print_summary(result)
+
+        elif choice == "4":
+            print("Goodbye.")
+            break
+
+        else:
+            print("Invalid choice.")
+
+# ----- Helpers -----
 def load_address_index(path: str) -> AddressIndex:
     idx = AddressIndex()
     idx.load(path)
@@ -107,7 +165,6 @@ def load_distance_matrix(path: str) -> DistanceMatrix:
     dm = DistanceMatrix()
     dm.load(path)
     return dm
-
 
 if __name__ == "__main__":
     main()
