@@ -44,7 +44,14 @@ def _nearest_next(
         pkg = packages.search(pid)
         if not pkg:
             continue
-        d = matrix.distance_between_addresses(current_addr, pkg.street, index)
+        if current_clock < getattr(pkg, "available_time", timedelta(0)):
+            continue
+        addr = pkg.street
+        corr_time = getattr(pkg, "correction_time", None)
+        corr_street = getattr(pkg, "corrected_street", None)
+        if corr_time is not None and corr_street and current_clock >= corr_time:
+            addr = corr_street
+        d = matrix.distance_between_addresses(current_addr, addr, index)
         travel_hours = d / 18.0
         if _would_miss_deadline(current_clock, travel_hours, pkg.deadline_time):
             continue
@@ -76,20 +83,32 @@ def route_truck(
         pkg = packages.search(pid)
         if pkg:
             pkg.truck_id = truck.id
-            pkg.departure_time = truck.clock
-            pkg.status = "En route"
+            if truck.clock >= getattr(pkg, "available_time", timedelta(0)):
+                pkg.departure_time = truck.clock
+                pkg.status = "En route"
 
     remaining = truck.load.copy()
 
     while remaining:
         next_pid, dist = _nearest_next(truck.current_addr, truck.clock, remaining, packages, index, matrix)
+        pkg = packages.search(next_pid)
+        if pkg and pkg.departure_time is None and truck.clock >= getattr(pkg, "available_time", timedelta(0)):
+            pkg.departure_time = truck.clock
+            pkg.status = "En route"
+
         if next_pid is None:
             break
         truck.miles += dist
         truck.clock += travel_time(dist, truck.speed_mph)
         pkg = packages.search(next_pid)
         if pkg:
-            truck.current_addr = pkg.street
+            addr = pkg.street
+            corr_time = getattr(pkg, "correction_time", None)
+            corr_street = getattr(pkg, "corrected_street", None)
+            if corr_time is not None and corr_street and truck.clock >= corr_time:
+                addr = corr_street
+
+            truck.current_addr = addr
             pkg.delivery_time = truck.clock
             pkg.status = "Delivered"
         remaining.remove(next_pid)
