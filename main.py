@@ -151,6 +151,8 @@ def status_at_time(pkg: Package, query: timedelta) -> str:
 # ----- Main -----
 def main():
     load_packages_csv("data/packageCSV.csv")
+    print("\nHash Table Contents:")
+    packages.print_table()
 
     index = load_address_index("data/addressCSV.csv")
     matrix = load_distance_matrix("data/distanceCSV.csv")

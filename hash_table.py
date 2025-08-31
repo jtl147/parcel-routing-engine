@@ -82,6 +82,30 @@ class ChainingHashTable:
                 self._buckets[idx].append((k, v))
                 self._size += 1
 
+    def print_table(self):
+        rows = []
+        for bucket in self._buckets:
+            for key, value in bucket:
+                rows.append([
+                    str(key),
+                    f"{value.street}, {value.city}, {value.state} {value.zip}",
+                    str(value.deadline),
+                    str(value.weight),
+                    str(value.status),
+                    str(value.delivery_time)
+                ])
+
+        col_widths = [max(
+            len(row[i]) for row in rows + [["Package ID", "Address", "Deadline", "Weight", "Status", "Delivery Time"]])
+                      for i in range(6)]
+
+        header = ["Package ID", "Address", "Deadline", "Weight", "Status", "Delivery Time"]
+        print("  ".join(header[i].ljust(col_widths[i]) for i in range(6)))
+        print("-" * (sum(col_widths) + 10))
+
+        for row in rows:
+            print("  ".join(row[i].ljust(col_widths[i]) for i in range(6)))
+
 if __name__ == "__main__":
     ht = ChainingHashTable()
     ht.insert(1, "Package 1")
