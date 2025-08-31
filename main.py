@@ -1,3 +1,6 @@
+# Author: Jedi Lee
+# Student ID: 012594297
+
 from hash_table import ChainingHashTable
 import csv
 from dataclasses import dataclass
@@ -13,6 +16,14 @@ import re
 # ----- Models -----
 @dataclass
 class Package:
+    """
+    Represents a single WGUPS package and all fields the UI must display.
+
+    Note:
+      - available_time: earliest time package can leave hub (delays and/or correction time)
+      - correction_time/ corrected_street: wrong-address scenario triggers at/after 10:20
+      - status timestamps are recorded during routing (departure_time, delivery_time)
+    """
     id: int
     street: str
     city: str
@@ -41,6 +52,7 @@ def _parse_deadline(s: str) -> Optional[time]:
         return None
     return datetime.strptime(s, "%I:%M %p").time()
 
+# Soft pattern to extract "HH:MM"
 _TIME_RE = re.compile(r'(\d{1,2}:\d{2})\s*([AaPp][Mm])?')
 
 def _parse_hhmm_from_text(text: str) -> Optional[time]:
@@ -53,28 +65,46 @@ def _parse_hhmm_from_text(text: str) -> Optional[time]:
     return datetime.strptime(hhmm, "%H:%M").time()
 
 def _infer_constraints(pkg: Package) -> None:
+    """
+    Derive availability/correction from the Notes column when present.
+    Examples:
+      - "Delayed on flight—will not arrive to depot until 9:05 am"
+      - "Wrong address listed, corrected at 10:20 AM to 410 S State St"
+    """
     note = (pkg.notes or "").strip().lower()
+
+    # Delays: set earliest available_time
     if "delay" in note:
         t = _parse_hhmm_from_text(note)
         if t:
             pkg.available_time = timedelta(hours=t.hour, minutes=t.minute)
+
+    # Address correction: set correction_time and corrected_street if detectable
     if "wrong address" in note or "address corrected" in note or "corrected at" in note:
         t = _parse_hhmm_from_text(note)
         if t:
             pkg.correction_time = timedelta(hours=t.hour, minutes=t.minute)
+            # once corrected, we also shouldn't depart prior to this time
             pkg.available_time = max(pkg.available_time, pkg.correction_time)
+        # naive parse of "... to <street>"
         if " to " in (pkg.notes or ""):
             try:
                 pkg.corrected_street = pkg.notes.split(" to ", 1)[1].strip()
             except Exception:
                 pkg.corrected_street = None
 
+    # Final fallback for "to ..." phrasing
     m = re.search(r"\bto\b\s*(.+)$", pkg.notes or "", flags=re.IGNORECASE)
     if m:
         pkg.corrected_street = m.group(1).strip()
 
 def load_packages_csv(path: str) -> None:
-    """Load packageCSV.csv and insert Package into hash table."""
+    """
+    Read packageCSV.csv and populate the hash table:
+      - parse deadline to time object (or None for EOD)
+      - infer availability/correction from notes
+      - insert into ChainingHashTable keyed by package ID
+    """
     with open(path, newline="") as f:
         reader = csv.reader(f)
         next(reader)
@@ -95,6 +125,9 @@ def load_packages_csv(path: str) -> None:
 
 # ----- Reset Package Status -----
 def reset_package_statuses():
+    """
+    Clear per-run state so the UI can re-run simulation and time queries cleanly.
+    """
     for pid, pkg in packages.items():
         pkg.status = "At the hub"
         pkg.departure_time = None
@@ -103,9 +136,9 @@ def reset_package_statuses():
 
 def apply_scenario_overrides() -> None:
     """
-    Encode rubric assumptions:
-    - Pkgs 6,25,28,32 are not available until 9:05
-    - Pkg 9 has wrong address corrected at 10:20; corrected street is 410 S State St
+    Encode rubric assumptions explicitly (robust to messy notes):
+      - Pkgs 6,25,28,32: not available until 9:05
+      - Pkg 9: wrong address corrected at 10:20 -> "410 S State St"
     """
     for pid in (6, 25, 28, 32):
         p = packages.search(pid)
@@ -134,12 +167,24 @@ def fmt_time(td: Optional[timedelta]) -> str:
     return (datetime(2000, 1, 1) + td).strftime("%I:%M %p")
 
 def address_at_time(pkg: Package, query: timedelta) -> str:
+    """
+    Return which address should be shown at a given time:
+      - before correction_time: original address
+      - at/after correction_time: corrected address
+    """
     if pkg.correction_time is not None and pkg.corrected_street:
         if query >= pkg.correction_time:
             return pkg.corrected_street
     return pkg.street
 
 def status_at_time(pkg: Package, query: timedelta) -> str:
+    """
+    Time-slice a package's status for the UI queries:
+      - before available_time: DELAYED
+      - after delivery_time: Delivered at <time>
+      - between depart and delivery: En route
+      - otherwise: At the hub
+    """
     if query < pkg.available_time:
         return "DELAYED"
     if pkg.delivery_time and query >= pkg.delivery_time:
@@ -150,44 +195,49 @@ def status_at_time(pkg: Package, query: timedelta) -> str:
 
 # ----- Main -----
 def main():
+    # 1) Load packages to hash table
     load_packages_csv("data/packageCSV.csv")
     print("\nHash Table Contents:")
-    packages.print_table()
+    packages.print_table()  # for rubric screenshots (Task 2 A/B)
 
+    # 2) Load address index and distances (O(1) lookups thereafter)
     index = load_address_index("data/addressCSV.csv")
     matrix = load_distance_matrix("data/distanceCSV.csv")
 
+    # Small sanity check
     print("Loaded packages:", packages.search(1) is not None, packages.search(2) is not None)
-
     hub_addr = "4001 South 700 East"
     sample_pkg = packages.search(1)
     if sample_pkg:
         d = matrix.distance_between_addresses(hub_addr, sample_pkg.street, index)
         print(f"Distance HUB -> Package 1 address: {d:.1f} miles")
 
+    # 3) Manual staging (meets constraints and keeps miles < 140)
     loads = {
         1: [1, 29, 7, 30, 8, 34, 40, 14, 15, 16, 19, 20, 13, 37, 38, 36],
         2: [3, 18, 6, 28, 32, 33, 25, 12, 9, 22, 24, 11, 10, 5, 4, 21],
         3: [2, 17, 23, 26, 27, 31, 35, 39],
     }
 
+    # Holds (driver/constraints): Truck 2 waits for 9:05 delays; Truck 3 after a driver returns (~11:00)
     holds = {
         2: timedelta(hours=9, minutes=5),
         3: timedelta(hours=11, minutes=0),
     }
 
+    # 4) Reset, apply scenario assumptions, then simulate full day
     reset_package_statuses()
     apply_scenario_overrides()
-
     result = simulate_day(packages, index, matrix, loads, holds)
     print_summary(result)
 
+    # Optional small echo to confirm delivery times are stamped
     for pid in [1, 2, 3]:
         p = packages.search(pid)
         if p:
             print(f"Pkg {pid} delivered at {p.delivery_time}")
 
-    # ----- Console Menu -----
+    # 5) Interactive console (Task 2 D): time-slice queries
     while True:
         print("\nMenu:")
         print("1) Status of a single package at a time")
@@ -207,7 +257,6 @@ def main():
                 print(f"Package {pid} | Truck {pkg.truck_id if pkg.truck_id else 'N/A'}")
                 print(f"Address at {fmt_time(q)}: {address_at_time(pkg, q)}")
                 print(f"Status at {fmt_time(q)}: {status_at_time(pkg, q)}")
-
             except Exception as e:
                 print("Error:", e)
 

@@ -1,10 +1,22 @@
+# Author: Jedi Lee
+# Student ID: 012594297
+
 from typing import Any, Iterable, List, Optional, Tuple
 
 class ChainingHashTable:
     """
-    Chaining hash table (separate chaining with linked-list buckets).
-    Average-case time: O(1) for insert/search/remove.
-    Worst-case time: O(n) within a single bucket under heavy collisions.
+    Separate-chaining hash table for package storage: key=Package ID, value=Package object.
+
+    Why:
+      - O(1) average insert/search/remove; supports frequent status updates in real time.
+      - Chaining gracefully handles collisions via per-bucket lists.
+
+    Process/Flow:
+      - insert(): place/update (key,value) in bucket; resize when load factor exceeded
+      - search(): return value for key or None
+      - remove(): delete key if present
+      - items(): iterate all pairs (for reporting/UI)
+      - print_table(): pretty-prints core package fields for screenshots (Task 2 A/B)
     """
 
     __slots__ = ("_buckets", "_size", "_max_load_factor")
@@ -17,7 +29,7 @@ class ChainingHashTable:
         self._max_load_factor: float = max_load_factor
 
     def insert(self, key: Any, value: Any) -> None:
-        """Insert or update a (key, value) pair."""
+        """Insert or update a (key, value) pair; doubles capacity when load factor exceeds threshold."""
         idx = self._index(key)
         bucket = self._buckets[idx]
 
@@ -57,7 +69,7 @@ class ChainingHashTable:
         return self.search(key) is not None
 
     def items(self) -> Iterable[Tuple[Any, Any]]:
-        """Iterate all (key, value) pairs."""
+        """Iterate all (key, value) pairs for reporting/UI."""
         for bucket in self._buckets:
             for kv in bucket:
                 yield kv
@@ -69,10 +81,11 @@ class ChainingHashTable:
         return self._size / len(self._buckets)
 
     def _index(self, key: Any) -> int:
+        # Built-in hash % capacity routes key to a bucket
         return hash(key) % len(self._buckets)
 
     def _resize(self, new_capacity: int) -> None:
-        """Rehash into a larger bucket array."""
+        """Rehash all entries into a larger bucket array to maintain O(1) average ops."""
         old_buckets = self._buckets
         self._buckets = [[] for _ in range(new_capacity)]
         self._size = 0
@@ -83,6 +96,9 @@ class ChainingHashTable:
                 self._size += 1
 
     def print_table(self):
+        """
+        Columns: Package ID | Address | Deadline | Weight | Status | Delivery Time
+        """
         rows = []
         for bucket in self._buckets:
             for key, value in bucket:
@@ -107,6 +123,7 @@ class ChainingHashTable:
             print("  ".join(row[i].ljust(col_widths[i]) for i in range(6)))
 
 if __name__ == "__main__":
+    # Small smoke test for local debugging
     ht = ChainingHashTable()
     ht.insert(1, "Package 1")
     ht.insert(2, "Package 2")

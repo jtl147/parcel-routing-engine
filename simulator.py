@@ -1,3 +1,6 @@
+# Author: Jedi Lee
+# Student ID: 012594297
+
 from datetime import timedelta
 from typing import Dict, List
 
@@ -15,16 +18,18 @@ def simulate_day(
     hold_at_hub_until: Dict[int, timedelta] | None = None,
 ) -> Dict:
     """
-    Simulate a day with up to 3 trucks, 2 drivers active at a time.
+    Orchestrates up to 3 trucks with 2 drivers active at a time.
 
-    loads: {truck_id: [pkg_ids]}
-    hold_at_hub_until: optional per-truck release times
+    Inputs:
+      - loads:             {truck_id: [package_ids]} (manual staging that satisfies constraints)
+      - hold_at_hub_until: optional per-truck 'start gates'
 
-    Returns:
-        {
-          "trucks": {1: truck1, 2: truck2, 3: truck3},
-          "total_miles": float
-        }
+    Flow:
+      1) Create 3 Truck objects (clock=start_time by default 8:00).
+      2) Apply any per-truck hold overrides (start_time/clock).
+      3) Route Truck 1 and Truck 2 immediately (two drivers).
+      4) When a driver is free (min(t1.clock, t2.clock)), start Truck 3 if needed.
+      5) Return total mileage and the truck objects for reporting.
     """
     t1 = Truck(id=1, start_time=HUB_START)
     t2 = Truck(id=2, start_time=HUB_START)
@@ -32,18 +37,21 @@ def simulate_day(
 
     trucks = {1: t1, 2: t2, 3: t3}
 
+    # Optional holds
     if hold_at_hub_until:
         for tid, ts in hold_at_hub_until.items():
             if tid in trucks:
                 trucks[tid].start_time = ts
                 trucks[tid].clock = ts
 
+    # Two drivers active: run 1 and 2 in parallel
     if 1 in loads and loads[1]:
         route_truck(t1, loads[1], packages, index, matrix)
 
     if 2 in loads and loads[2]:
         route_truck(t2, loads[2], packages, index, matrix)
 
+    # Truck 3 waits until one driver returns
     if 3 in loads and loads[3]:
         driver_free_time = min(t1.clock, t2.clock)
         if t3.start_time < driver_free_time:
@@ -57,6 +65,9 @@ def simulate_day(
 
 
 def print_summary(sim_result: Dict) -> None:
+    """
+    Console helper for Task 2 outputs: per-truck miles/finish times and grand total.
+    """
     trucks = sim_result["trucks"]
     total = sim_result["total_miles"]
     for tid, tr in trucks.items():
