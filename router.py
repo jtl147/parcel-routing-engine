@@ -13,8 +13,6 @@ HUB_ADDR = "4001 South 700 East"
 class Truck:
     """
     A minimal truck state used by the greedy router.
-
-    Fields:
       - id:             1..3
       - speed_mph:      18 mph
       - capacity:       16 packages max
@@ -60,11 +58,6 @@ def _nearest_next(
     """
     Core greedy step: among remaining feasible packages, choose the one with the
     shortest distance from the current address.
-
-    Feasibility checks:
-      - available_time (delays, address correction time)
-      - deadline feasibility (skip if the drive would miss the deadline)
-      - address correction: once correction_time has passed, use corrected_street
     """
     best_pid: Optional[int] = None
     best_dist: float = float("inf")
@@ -75,7 +68,6 @@ def _nearest_next(
         # Skip packages that aren't yet available
         if current_clock < getattr(pkg, "available_time", timedelta(0)):
             continue
-
         # If the address gets corrected later, switch to corrected address after that time
         addr = pkg.street
         corr_time = getattr(pkg, "correction_time", None)
@@ -154,11 +146,9 @@ def route_truck(
             corr_street = getattr(pkg, "corrected_street", None)
             if corr_time is not None and corr_street and truck.clock >= corr_time:
                 addr = corr_street
-
             truck.current_addr = addr
             pkg.delivery_time = truck.clock
             pkg.status = "Delivered"
-
         remaining.remove(next_pid)
 
     # Return to hub after finishing last stop

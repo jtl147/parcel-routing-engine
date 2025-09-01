@@ -7,11 +7,6 @@ from typing import Dict, List
 class AddressIndex:
     """
     Maps human-readable street addresses <-> numeric node IDs used by the distance matrix.
-
-    Why:
-      - The WGUPS distance table is organized by row/column indices.
-      - We normalize and store each address once, then look up node IDs in O(1).
-
     Process/Flow:
       - load(): read addressCSV, build two maps:
           addr_to_node: "410 S State St" -> 9
@@ -54,9 +49,6 @@ class AddressIndex:
 class DistanceMatrix:
     """
     Stores a fully symmetric miles matrix.
-
-    Why:
-      - WGUPS CSV provides one direction; we mirror to make lookups O(1) for any (i, j).
 
     Process/Flow:
       - load(): build a square matrix of floats, copy lower triangle to upper

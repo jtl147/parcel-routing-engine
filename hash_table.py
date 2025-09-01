@@ -5,18 +5,15 @@ from typing import Any, Iterable, List, Optional, Tuple
 
 class ChainingHashTable:
     """
-    Separate-chaining hash table for package storage: key=Package ID, value=Package object.
+    - Separate-chaining hash table for package storage: key=Package ID, value=Package object.
+    - O(1) average insert/search/remove; supports frequent status updates in real time.
+    - Chaining gracefully handles collisions via per-bucket lists.
 
-    Why:
-      - O(1) average insert/search/remove; supports frequent status updates in real time.
-      - Chaining gracefully handles collisions via per-bucket lists.
-
-    Process/Flow:
-      - insert(): place/update (key,value) in bucket; resize when load factor exceeded
-      - search(): return value for key or None
-      - remove(): delete key if present
-      - items(): iterate all pairs (for reporting/UI)
-      - print_table(): pretty-prints core package fields for screenshots (Task 2 A/B)
+    - insert(): place/update (key,value) in bucket; resize when load factor exceeded
+    - search(): return value for key or None
+    - remove(): delete key if present
+    - items(): iterate all pairs
+    - print_table(): pretty-prints core package fields for screenshots
     """
 
     __slots__ = ("_buckets", "_size", "_max_load_factor")
@@ -96,9 +93,6 @@ class ChainingHashTable:
                 self._size += 1
 
     def print_table(self):
-        """
-        Columns: Package ID | Address | Deadline | Weight | Status | Delivery Time
-        """
         rows = []
         for bucket in self._buckets:
             for key, value in bucket:
@@ -110,15 +104,12 @@ class ChainingHashTable:
                     str(value.status),
                     str(value.delivery_time)
                 ])
-
         col_widths = [max(
             len(row[i]) for row in rows + [["Package ID", "Address", "Deadline", "Weight", "Status", "Delivery Time"]])
                       for i in range(6)]
-
         header = ["Package ID", "Address", "Deadline", "Weight", "Status", "Delivery Time"]
         print("  ".join(header[i].ljust(col_widths[i]) for i in range(6)))
         print("-" * (sum(col_widths) + 10))
-
         for row in rows:
             print("  ".join(row[i].ljust(col_widths[i]) for i in range(6)))
 
