@@ -197,14 +197,6 @@ def main():
     index = load_address_index("data/addressCSV.csv")
     matrix = load_distance_matrix("data/distanceCSV.csv")
 
-    # Load verification
-    print("Loaded packages:", packages.search(1) is not None, packages.search(2) is not None)
-    hub_addr = "4001 South 700 East"
-    sample_pkg = packages.search(1)
-    if sample_pkg:
-        d = matrix.distance_between_addresses(hub_addr, sample_pkg.street, index)
-        print(f"Distance HUB -> Package 1 address: {d:.1f} miles")
-
     # 3) Manual staging
     loads = {
         1: [1, 29, 7, 30, 8, 34, 40, 14, 15, 16, 19, 20, 13, 37, 38, 36],
@@ -223,11 +215,6 @@ def main():
     apply_scenario_overrides()
     result = simulate_day(packages, index, matrix, loads, holds)
     print_summary(result)
-
-    for pid in [1, 2, 3]:
-        p = packages.search(pid)
-        if p:
-            print(f"Pkg {pid} delivered at {p.delivery_time}")
 
     # 5) Interactive console
     while True:
