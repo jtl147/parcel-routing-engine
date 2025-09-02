@@ -159,6 +159,10 @@ def fmt_time(td: Optional[timedelta]) -> str:
         return "N/A"
     return (datetime(2000, 1, 1) + td).strftime("%I:%M %p")
 
+def fmt_deadline(t: Optional[time]) -> str:
+    return t.strftime("%I:%M %p") if t else "EOD"
+
+
 def address_at_time(pkg: Package, query: timedelta) -> str:
     """
     Return which address should be shown at a given time:
@@ -199,9 +203,9 @@ def main():
 
     # 3) Manual staging
     loads = {
-        1: [1, 29, 7, 30, 8, 34, 40, 14, 15, 16, 19, 20, 13, 37, 38, 36],
-        2: [3, 18, 6, 28, 32, 33, 25, 12, 9, 22, 24, 11, 10, 5, 4, 21],
-        3: [2, 17, 23, 26, 27, 31, 35, 39],
+        1: [1, 29, 7, 30, 8, 34, 40, 14, 15, 16, 19, 20, 13, 37],
+        2: [3, 18, 36, 38, 6, 28, 32, 33, 25, 12, 9, 11, 10, 5, 4, 21],
+        3: [2, 17, 23, 26, 27, 31, 35, 39, 22, 24],
     }
 
     # Holds (driver/constraints): Truck 2 waits for 9:05 delays; Truck 3 after a driver returns
@@ -234,8 +238,10 @@ def main():
                     print("Package not found.")
                     continue
                 print(f"Package {pid} | Truck {pkg.truck_id if pkg.truck_id else 'N/A'}")
+                print(f"Deadline: {fmt_deadline(pkg.deadline_time)}")
                 print(f"Address at {fmt_time(q)}: {address_at_time(pkg, q)}")
                 print(f"Status at {fmt_time(q)}: {status_at_time(pkg, q)}")
+                print(f"Actual delivery time: {fmt_time(pkg.delivery_time)}")
             except Exception as e:
                 print("Error:", e)
         elif choice == "2":
@@ -245,7 +251,8 @@ def main():
                     addr = address_at_time(pkg, q)
                     status = status_at_time(pkg, q)
                     truck = pkg.truck_id if pkg.truck_id else "N/A"
-                    print(f"Package {pid} | Truck {truck} | {addr} | {status}")
+                    deadline = fmt_deadline(pkg.deadline_time)
+                    print(f"Package {pid} | Truck {truck} | {addr} | Deadline {deadline} | {status}")
             except Exception as e:
                 print("Error:", e)
         elif choice == "3":
