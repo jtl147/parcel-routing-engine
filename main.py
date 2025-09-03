@@ -175,13 +175,6 @@ def address_at_time(pkg: Package, query: timedelta) -> str:
     return pkg.street
 
 def status_at_time(pkg: Package, query: timedelta) -> str:
-    """
-    Time-slice a package's status for the UI queries:
-      - before available_time: DELAYED
-      - after delivery_time: Delivered at <time>
-      - between depart and delivery: En route
-      - otherwise: At the hub
-    """
     if query < pkg.available_time:
         return "DELAYED"
     if pkg.delivery_time and query >= pkg.delivery_time:
@@ -203,9 +196,9 @@ def main():
 
     # 3) Manual staging
     loads = {
-        1: [1, 29, 7, 30, 8, 34, 40, 14, 15, 16, 19, 20, 13, 37],
+        1: [1, 29, 7, 30, 8, 34, 40, 14, 15, 16, 19, 20, 13, 37, 31],
         2: [3, 18, 36, 38, 6, 28, 32, 33, 25, 12, 9, 11, 10, 5, 4, 21],
-        3: [2, 17, 23, 26, 27, 31, 35, 39, 22, 24],
+        3: [2, 17, 23, 26, 27, 35, 39, 22, 24],
     }
 
     # Holds (driver/constraints): Truck 2 waits for 9:05 delays; Truck 3 after a driver returns
@@ -228,7 +221,6 @@ def main():
         print("3) Summary (truck miles and total)")
         print("4) Exit")
         choice = input("Choose an option (1-4): ").strip()
-
         if choice == "1":
             try:
                 pid = int(input("Enter package ID: ").strip())

@@ -55,20 +55,17 @@ def _nearest_next(
     index: AddressIndex,
     matrix: DistanceMatrix,
 ) -> Tuple[Optional[int], float]:
-    """
-    Core greedy step: among remaining feasible packages, choose the one with the
-    shortest distance from the current address.
-    """
-    best_pid: Optional[int] = None
-    best_dist: float = float("inf")
+    """Pick nearest on-time stop; if none, pick nearest anyway."""
+    best_on_pid, best_on_dist = None, float("inf")
+    best_any_pid, best_any_dist = None, float("inf")
+
     for pid in remaining_pkg_ids:
         pkg = packages.search(pid)
         if not pkg:
             continue
-        # Skip packages that aren't yet available
         if current_clock < getattr(pkg, "available_time", timedelta(0)):
             continue
-        # If the address gets corrected later, switch to corrected address after that time
+
         addr = pkg.street
         corr_time = getattr(pkg, "correction_time", None)
         corr_street = getattr(pkg, "corrected_street", None)
@@ -77,13 +74,18 @@ def _nearest_next(
 
         d = matrix.distance_between_addresses(current_addr, addr, index)
         travel_hours = d / 18.0
-        if _would_miss_deadline(current_clock, travel_hours, pkg.deadline_time):
-            continue
 
-        if d < best_dist:
-            best_dist = d
-            best_pid = pid
-    return best_pid, (0.0 if best_pid is None else best_dist)
+        # track best on-time candidate
+        if not _would_miss_deadline(current_clock, travel_hours, pkg.deadline_time):
+            if d < best_on_dist:
+                best_on_pid, best_on_dist = pid, d
+        if d < best_any_dist:
+            best_any_pid, best_any_dist = pid, d
+    if best_on_pid is not None:
+        return best_on_pid, best_on_dist
+    if best_any_pid is not None:
+        return best_any_pid, best_any_dist
+    return None, 0.0
 
 
 def route_truck(
@@ -114,9 +116,6 @@ def route_truck(
         pkg = packages.search(pid)
         if pkg:
             pkg.truck_id = truck.id
-            if truck.clock >= getattr(pkg, "available_time", timedelta(0)):
-                pkg.departure_time = truck.clock
-                pkg.status = "En route"
 
     remaining = truck.load.copy()
 
@@ -132,8 +131,23 @@ def route_truck(
 
         # No feasible next stop — break to avoid infinite loop
         if next_pid is None:
-            break
-
+            # find next availability or correction time in the future
+            next_events = []
+            for pid in remaining:
+                pkg = packages.search(pid)
+                if not pkg:
+                    continue
+                avail = getattr(pkg, "available_time", None)
+                if avail is not None and avail > truck.clock:
+                    next_events.append(avail)
+                corr_t = getattr(pkg, "correction_time", None)
+                if corr_t is not None and corr_t > truck.clock:
+                    next_events.append(corr_t)
+            if next_events:
+                truck.clock = min(next_events)
+                continue
+            else:
+                break
         # Travel to next stop
         truck.miles += dist
         truck.clock += travel_time(dist, truck.speed_mph)
