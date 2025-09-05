@@ -55,7 +55,9 @@ def _nearest_next(
     index: AddressIndex,
     matrix: DistanceMatrix,
 ) -> Tuple[Optional[int], float]:
-    """Pick nearest on-time stop; if none, pick nearest anyway."""
+    URGENCY = timedelta(minutes=15)
+    urgent_pick = None
+    urgent_dist = float("inf")
     best_on_pid, best_on_dist = None, float("inf")
     best_any_pid, best_any_dist = None, float("inf")
 
@@ -75,12 +77,22 @@ def _nearest_next(
         d = matrix.distance_between_addresses(current_addr, addr, index)
         travel_hours = d / 18.0
 
-        # track best on-time candidate
+        if d < best_any_dist:
+            best_any_pid, best_any_dist = pid, d
+
         if not _would_miss_deadline(current_clock, travel_hours, pkg.deadline_time):
             if d < best_on_dist:
                 best_on_pid, best_on_dist = pid, d
-        if d < best_any_dist:
-            best_any_pid, best_any_dist = pid, d
+            if pkg.deadline_time is not None:
+                base = datetime(2000, 1, 1)
+                arrival_dt = base + current_clock + timedelta(hours=travel_hours)
+                deadline_dt = datetime.combine(base.date(), pkg.deadline_time)
+                slack = deadline_dt - arrival_dt
+                if slack <= URGENCY and d < urgent_dist:
+                    urgent_pick, urgent_dist = pid, d
+
+    if urgent_pick is not None:
+        return urgent_pick, urgent_dist
     if best_on_pid is not None:
         return best_on_pid, best_on_dist
     if best_any_pid is not None:
